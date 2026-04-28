@@ -33,16 +33,37 @@ const shuffle = (arr) => {
   }
   return a;
 };
+const truncate = (s, n=55) => (s && s.length > n) ? s.slice(0, n-1) + '…' : (s || '');
 
-function arrangeGame1(facts) {
+// Auto-arrange — when no custom rounds exist
+function arrangeGame1Auto(facts) {
   const lucas  = shuffle(facts.filter(f =>  f.isLucas));
   const guests = shuffle(facts.filter(f => !f.isLucas));
   const rounds = [];
   const numRounds = Math.min(Math.floor(guests.length / 2), lucas.length);
   for (let i = 0; i < numRounds; i++) {
-    const lFact = lucas[i];
-    const gA    = guests[i * 2];
-    const gB    = guests[i * 2 + 1];
+    const positions = shuffle([
+      { ...lucas[i],         isLucas: true  },
+      { ...guests[i * 2],    isLucas: false },
+      { ...guests[i * 2 + 1],isLucas: false },
+    ]);
+    const lukeyIndex = positions.findIndex(p => p.isLucas);
+    rounds.push({ id: 'r' + uid(), facts: positions.map(p => p.text), lukeyIndex });
+  }
+  return rounds;
+}
+
+// Build rounds from host's custom groupings — keeps groupings intact,
+// randomizes position-within-round AND round order
+function arrangeGame1FromCustom(customRounds, factsPool) {
+  const factsById = {};
+  factsPool.forEach(f => factsById[f.id] = f);
+  const rounds = [];
+  for (const cr of customRounds) {
+    const lFact = factsById[cr.lukeyFactId];
+    const gA    = factsById[cr.guestFactIds?.[0]];
+    const gB    = factsById[cr.guestFactIds?.[1]];
+    if (!lFact || !gA || !gB) continue;
     const positions = shuffle([
       { ...lFact, isLucas: true  },
       { ...gA,    isLucas: false },
@@ -51,9 +72,10 @@ function arrangeGame1(facts) {
     const lukeyIndex = positions.findIndex(p => p.isLucas);
     rounds.push({ id: 'r' + uid(), facts: positions.map(p => p.text), lukeyIndex });
   }
-  return rounds;
+  return shuffle(rounds);
 }
 
+// Stories are always shuffled so it's not predictable whose is whose
 function arrangeGame2(stories) {
   return shuffle(stories).map(s => ({
     id: 'r' + uid(),
@@ -177,6 +199,7 @@ export default function App() {
       hostPin: pinSetup, phase: 'lobby',
       game1: { rounds:[], currentRound:0, revealed:false },
       game2: { rounds:[], currentRound:0, revealed:false },
+      customRounds: [],
       createdAt: Date.now(),
     };
     await setDoc(GAME_DOC(), newGame);
@@ -224,14 +247,33 @@ export default function App() {
   }
   async function deleteStory(id) { await deleteDoc(STORY_DOC(id)); }
 
+  // Host updates round groupings
+  async function updateCustomRounds(newRounds) {
+    if (!game) return;
+    await setDoc(GAME_DOC(), { ...game, customRounds: newRounds });
+  }
+
   async function setPhase(newPhase, extra={}) {
     if (!game) return;
     await setDoc(GAME_DOC(), {...game, phase:newPhase, ...extra});
   }
 
   async function startGame1() {
-    const rounds = arrangeGame1(factsPool);
-    if (!rounds.length) { alert('Need at least 2 guest facts and 1 Lukey fact.'); return; }
+    const customRounds = game.customRounds || [];
+    let rounds;
+    if (customRounds.length > 0) {
+      rounds = arrangeGame1FromCustom(customRounds, factsPool);
+      if (!rounds.length) {
+        alert('None of your custom rounds are complete. Fill in all 3 slots or hit Auto-fill.');
+        return;
+      }
+    } else {
+      rounds = arrangeGame1Auto(factsPool);
+      if (!rounds.length) {
+        alert(`Need at least 2 guest facts and 1 ${HOST_NAME} fact to start.`);
+        return;
+      }
+    }
     await setPhase('game1', { game1:{ rounds, currentRound:0, revealed:false } });
   }
 
@@ -262,6 +304,7 @@ export default function App() {
   }
 
   async function startGame2() {
+    // arrangeGame2 always shuffles — order of stories is randomized on every start
     const rounds = arrangeGame2(storiesPool);
     if (!rounds.length) { alert('Need at least 1 story to start Game 2.'); return; }
     await setPhase('game2', { game2:{ rounds, currentRound:0, revealed:false } });
@@ -305,58 +348,33 @@ export default function App() {
     await setDoc(PLAYER_DOC(myName), {...p, answers:{...(p.answers||{}), [key]:value}});
   }
 
-  async function reopenLobby() { 
-  if (!game) return;
-  try {
-    // Reset the game to lobby phase but keep existing data
+  // Soft reset — wipes scores/answers/round data, KEEPS facts/stories/customRounds/PIN
+  async function softReset() {
+    if (!confirm('Reset all scores and answers, but keep facts, stories, and round groupings?')) return;
     await setDoc(GAME_DOC(), {
       ...game,
       phase: 'lobby',
-      game1: { rounds: game.game1?.rounds || [], currentRound: 0, revealed: false },
-      game2: { rounds: game.game2?.rounds || [], currentRound: 0, revealed: false }
+      game1: { rounds:[], currentRound:0, revealed:false },
+      game2: { rounds:[], currentRound:0, revealed:false },
     });
-  } catch (error) {
-    console.error("Error returning to lobby:", error);
-    alert("Something went wrong. Please try again.");
+    const pSnap = await getDocs(playersCol());
+    for (const d of pSnap.docs) {
+      const p = d.data();
+      await setDoc(d.ref, { ...p, score:0, answers:{}, scored:{} });
+    }
   }
-}
+
+  async function reopenLobby() { await setPhase('lobby'); }
+
   async function resetEverything() {
-  if (!confirm('Wipe everything — game, scores, facts, stories. Sure?')) return;
-  
-  try {
-    setRole(null); 
-    setMyName(null);
-    
-    // Delete the game document
+    if (!confirm('Wipe EVERYTHING — game, scores, facts, stories, players. Are you sure?')) return;
+    setRole(null); setMyName(null);
     await deleteDoc(GAME_DOC());
-    
-    // Get and delete ALL facts
-    const factsSnapshot = await getDocs(factsCol());
-    const deleteFactsPromises = factsSnapshot.docs.map(doc => deleteDoc(doc.ref));
-    await Promise.all(deleteFactsPromises);
-    
-    // Get and delete ALL stories
-    const storiesSnapshot = await getDocs(storiesCol());
-    const deleteStoriesPromises = storiesSnapshot.docs.map(doc => deleteDoc(doc.ref));
-    await Promise.all(deleteStoriesPromises);
-    
-    // Get and delete ALL players
-    const playersSnapshot = await getDocs(playersCol());
-    const deletePlayersPromises = playersSnapshot.docs.map(doc => deleteDoc(doc.ref));
-    await Promise.all(deletePlayersPromises);
-    
-    // Clear local state
-    setFactsPool([]);
-    setStoriesPool([]);
-    setPlayers({});
-    
-    // Force a page refresh to ensure clean state
-    window.location.reload();
-  } catch (error) {
-    console.error("Error resetting everything:", error);
-    alert("Something went wrong while resetting. Please try again.");
+    for (const f of factsPool)   await deleteDoc(FACT_DOC(f.id));
+    for (const s of storiesPool) await deleteDoc(STORY_DOC(s.id));
+    const pSnap = await getDocs(playersCol());
+    for (const d of pSnap.docs) await deleteDoc(d.ref);
   }
-}
 
   if (boot === 'loading') return (
     <div className="min-h-screen w-full flex items-center justify-center ff-body"
@@ -386,12 +404,16 @@ export default function App() {
       <div className="relative z-10 max-w-2xl mx-auto px-5 py-8 sm:py-10">
         <Header role={role} myName={myName}
           onLogout={()=>{setRole(null);setMyName(null);}}
-          onReset={resetEverything} onReopenLobby={reopenLobby}/>
+          onReset={resetEverything}
+          onSoftReset={softReset}
+          onReopenLobby={reopenLobby}/>
 
         {game.phase==='lobby'   && <LobbyView game={game} players={players} role={role} myName={myName}
           factsPool={factsPool} storiesPool={storiesPool}
           onAddFact={addFact} onDeleteFact={deleteFact}
-          onAddStory={addStory} onDeleteStory={deleteStory} onStart={startGame1}/>}
+          onAddStory={addStory} onDeleteStory={deleteStory}
+          onUpdateCustomRounds={updateCustomRounds}
+          onStart={startGame1}/>}
 
         {game.phase==='game1'   && <Game1View game={game} players={players} role={role} myName={myName}
           onSubmit={submitAnswer} onReveal={reveal1} onNext={nextG1}/>}
@@ -402,7 +424,8 @@ export default function App() {
         {game.phase==='game2'   && <Game2View game={game} players={players} role={role} myName={myName}
           onSubmit={submitAnswer} onReveal={reveal2} onNext={nextG2}/>}
 
-        {game.phase==='final'   && <FinalView game={game} players={players} role={role} myName={myName}/>}
+        {game.phase==='final'   && <FinalView game={game} players={players} role={role} myName={myName}
+          onSoftReset={softReset} onReset={resetEverything}/>}
       </div>
     </div>
   );
@@ -515,9 +538,9 @@ function JoinScreen({nameInput,setNameInput,onJoin,showHostLogin,setShowHostLogi
 }
 
 // ============================================================
-// HEADER
+// HEADER  (dropdown menu, now with Play Again option)
 // ============================================================
-function Header({role,myName,onLogout,onReset,onReopenLobby}) {
+function Header({role,myName,onLogout,onReset,onSoftReset,onReopenLobby}) {
   const [menuOpen,setMenuOpen]=useState(false);
   return (
     <div className="flex items-center justify-between mb-7 fade-up">
@@ -540,26 +563,31 @@ function Header({role,myName,onLogout,onReset,onReopenLobby}) {
           </svg>
         </button>
         {menuOpen && (
-  <div className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden z-30 scale-in"
-       style={{background:'var(--ink-2)',border:'1px solid var(--hairline)'}}>
-    <button onClick={()=>{setMenuOpen(false);onReopenLobby();}}
-      className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--cream)'}}>
-      Switch identity
-    </button>
-    {role==='host' && <>
-      <div className="hairline"/>
-      <button onClick={()=>{setMenuOpen(false);onReopenLobby();}}
-        className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--cream)'}}>
-        Return to lobby
-      </button>
-      <div className="hairline"/>
-      <button onClick={()=>{setMenuOpen(false);onReset();}}
-        className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--coral)'}}>
-        Reset everything
-      </button>
-    </>}
-  </div>
-)}
+          <div className="absolute right-0 mt-2 w-64 rounded-xl overflow-hidden z-30 scale-in"
+               style={{background:'var(--ink-2)',border:'1px solid var(--hairline)'}}>
+            <button onClick={()=>{setMenuOpen(false);onLogout();}}
+              className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--cream)'}}>
+              Switch identity
+            </button>
+            {role==='host' && <>
+              <div className="hairline"/>
+              <button onClick={()=>{setMenuOpen(false);onSoftReset();}}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--jade)'}}>
+                🎲 Play again (keep content)
+              </button>
+              <div className="hairline"/>
+              <button onClick={()=>{setMenuOpen(false);onReopenLobby();}}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--cream)'}}>
+                Return to lobby
+              </button>
+              <div className="hairline"/>
+              <button onClick={()=>{setMenuOpen(false);onReset();}}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--coral)'}}>
+                ☢ Reset everything (wipe content)
+              </button>
+            </>}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -568,12 +596,21 @@ function Header({role,myName,onLogout,onReset,onReopenLobby}) {
 // ============================================================
 // LOBBY VIEW
 // ============================================================
-function LobbyView({game,players,role,myName,factsPool,storiesPool,onAddFact,onDeleteFact,onAddStory,onDeleteStory,onStart}) {
+function LobbyView({game,players,role,myName,factsPool,storiesPool,onAddFact,onDeleteFact,onAddStory,onDeleteStory,onUpdateCustomRounds,onStart}) {
   const playerList   = Object.values(players).sort((a,b)=>a.joinedAt-b.joinedAt);
   const lucasFacts   = factsPool.filter(f=>f.isLucas);
   const guestFacts   = factsPool.filter(f=>!f.isLucas);
-  const possibleRounds = Math.min(Math.floor(guestFacts.length/2),lucasFacts.length);
-  const canStart     = possibleRounds>=1;
+  const customRounds = game.customRounds || [];
+
+  // What's possible
+  const customCompleteCount = customRounds.filter(r => r.lukeyFactId && r.guestFactIds?.[0] && r.guestFactIds?.[1]
+    && factsPool.find(f => f.id === r.lukeyFactId)
+    && factsPool.find(f => f.id === r.guestFactIds[0])
+    && factsPool.find(f => f.id === r.guestFactIds[1])
+  ).length;
+  const autoPossibleRounds = Math.min(Math.floor(guestFacts.length/2),lucasFacts.length);
+  const usingCustom = customRounds.length > 0;
+  const canStart = usingCustom ? customCompleteCount >= 1 : autoPossibleRounds >= 1;
 
   return (
     <div className="fade-up">
@@ -609,6 +646,17 @@ function LobbyView({game,players,role,myName,factsPool,storiesPool,onAddFact,onD
             onAddFact={onAddFact} onDeleteFact={onDeleteFact}
             onAddStory={onAddStory} onDeleteStory={onDeleteStory}/>}
 
+      {/* HOST: Round Builder */}
+      {role==='host' && (
+        <div className="mt-6">
+          <RoundBuilder
+            factsPool={factsPool}
+            customRounds={customRounds}
+            onUpdate={onUpdateCustomRounds}
+          />
+        </div>
+      )}
+
       <div className="gg-card mb-6 mt-6">
         <div className="flex items-center justify-between mb-4">
           <div className="text-xs tracking-widest uppercase" style={{color:'var(--cream-3)'}}>At the table</div>
@@ -635,16 +683,241 @@ function LobbyView({game,players,role,myName,factsPool,storiesPool,onAddFact,onD
         <>
           {canStart
             ? <div className="text-center mb-3 text-xs" style={{color:'var(--cream-3)'}}>
-                ↳ {possibleRounds} round{possibleRounds===1?'':'s'} possible from current pool
+                ↳ {usingCustom ? `${customCompleteCount} custom round${customCompleteCount===1?'':'s'} ready` : `${autoPossibleRounds} round${autoPossibleRounds===1?'':'s'} possible (auto-grouped)`}
               </div>
             : <div className="text-center mb-3 text-sm px-4" style={{color:'var(--coral)'}}>
-                {GAME1_TITLE} needs at least 2 guest facts and 1 {HOST_NAME} fact
+                {usingCustom
+                  ? 'Finish at least one custom round (3 slots filled)'
+                  : `${GAME1_TITLE} needs at least 2 guest facts and 1 ${HOST_NAME} fact`}
               </div>}
           <button className="gg-btn gg-btn-primary w-full" onClick={onStart} disabled={!canStart} style={{padding:'18px'}}>
             Start Game 1: {GAME1_TITLE} →
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// ROUND BUILDER — the new feature
+// ============================================================
+function RoundBuilder({factsPool, customRounds, onUpdate}) {
+  const factsById = {};
+  factsPool.forEach(f => factsById[f.id] = f);
+
+  const allLukey = factsPool.filter(f => f.isLucas);
+  const allGuest = factsPool.filter(f => !f.isLucas);
+
+  // Available facts for a slot = all facts of that type, minus those used in OTHER slots
+  function availableForLukey(roundIdx) {
+    return allLukey.filter(f => {
+      const usedElsewhere = customRounds.some((r, i) => i !== roundIdx && r.lukeyFactId === f.id);
+      return !usedElsewhere;
+    });
+  }
+  function availableForGuest(roundIdx, slotIdx) {
+    return allGuest.filter(f => {
+      return !customRounds.some((r, i) =>
+        (r.guestFactIds || []).some((gid, gi) =>
+          gid === f.id && !(i === roundIdx && gi === slotIdx)
+        )
+      );
+    });
+  }
+
+  function autoFill() {
+    const lucas  = shuffle(allLukey);
+    const guests = shuffle(allGuest);
+    const numRounds = Math.min(Math.floor(guests.length / 2), lucas.length);
+    const next = [];
+    for (let i = 0; i < numRounds; i++) {
+      next.push({
+        lukeyFactId: lucas[i].id,
+        guestFactIds: [guests[i*2].id, guests[i*2+1].id],
+      });
+    }
+    onUpdate(next);
+  }
+
+  function clearAll() {
+    if (customRounds.length > 0 && !confirm('Clear all custom rounds?')) return;
+    onUpdate([]);
+  }
+
+  function addEmptyRound() {
+    onUpdate([...customRounds, { lukeyFactId: null, guestFactIds: [null, null] }]);
+  }
+
+  function removeRound(idx) {
+    onUpdate(customRounds.filter((_, i) => i !== idx));
+  }
+
+  function setLukeyFact(roundIdx, factId) {
+    onUpdate(customRounds.map((r, i) => i === roundIdx ? { ...r, lukeyFactId: factId } : r));
+  }
+
+  function setGuestFact(roundIdx, slotIdx, factId) {
+    onUpdate(customRounds.map((r, i) => {
+      if (i !== roundIdx) return r;
+      const guestFactIds = (r.guestFactIds || [null, null]).slice();
+      guestFactIds[slotIdx] = factId;
+      return { ...r, guestFactIds };
+    }));
+  }
+
+  function moveRound(idx, dir) {
+    const next = customRounds.slice();
+    const swap = idx + dir;
+    if (swap < 0 || swap >= next.length) return;
+    [next[idx], next[swap]] = [next[swap], next[idx]];
+    onUpdate(next);
+  }
+
+  // Can add another round? Need at least one available Lukey + 2 available guests
+  const usedLukeyCount = customRounds.filter(r => r.lukeyFactId).length;
+  const usedGuestCount = customRounds.reduce((c, r) => c + (r.guestFactIds || []).filter(Boolean).length, 0);
+  const canAddRound = (allLukey.length > usedLukeyCount) && (allGuest.length >= usedGuestCount + 2);
+
+  return (
+    <div className="gg-card">
+      <div className="flex items-center justify-between mb-3" style={{flexWrap:'wrap',gap:8}}>
+        <div className="text-xs tracking-widest uppercase" style={{color:'var(--cream-3)'}}>
+          Round Builder · Game 1
+        </div>
+        <div className="flex gap-3">
+          <button onClick={autoFill}
+            className="text-xs tracking-widest uppercase"
+            style={{color:'var(--jade)'}}
+            disabled={allLukey.length===0 || allGuest.length<2}>
+            ↻ Auto-fill
+          </button>
+          {customRounds.length > 0 && (
+            <button onClick={clearAll} className="text-xs tracking-widest uppercase" style={{color:'var(--coral)'}}>
+              ✕ Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      <p className="text-xs mb-4" style={{color:'var(--cream-3)',lineHeight:1.5}}>
+        Group 3 facts per round (1 truth + 2 lies). The position within each round and the order of rounds are randomized when the game starts. Leaving this empty falls back to fully-automatic grouping.
+      </p>
+
+      {customRounds.length === 0 ? (
+        <div className="text-center text-sm py-4" style={{color:'var(--cream-3)'}}>
+          No custom rounds yet — tap Auto-fill above, or "+ Add round" below to start manually.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {customRounds.map((r, i) => (
+            <RoundBuilderRow
+              key={i} idx={i} round={r}
+              factsById={factsById}
+              availableLukey={availableForLukey(i)}
+              availableGuest0={availableForGuest(i, 0)}
+              availableGuest1={availableForGuest(i, 1)}
+              isFirst={i===0} isLast={i===customRounds.length-1}
+              onSetLukey={(id)=>setLukeyFact(i, id)}
+              onSetGuest={(slot, id)=>setGuestFact(i, slot, id)}
+              onMove={(dir)=>moveRound(i, dir)}
+              onRemove={()=>removeRound(i)}
+            />
+          ))}
+        </div>
+      )}
+
+      <button
+        className="gg-btn gg-btn-ghost w-full mt-4"
+        onClick={addEmptyRound}
+        disabled={!canAddRound}>
+        + Add empty round
+      </button>
+    </div>
+  );
+}
+
+function RoundBuilderRow({idx, round, factsById, availableLukey, availableGuest0, availableGuest1, isFirst, isLast, onSetLukey, onSetGuest, onMove, onRemove}) {
+  const lukeyFact = round.lukeyFactId ? factsById[round.lukeyFactId] : null;
+  const guest0    = round.guestFactIds?.[0] ? factsById[round.guestFactIds[0]] : null;
+  const guest1    = round.guestFactIds?.[1] ? factsById[round.guestFactIds[1]] : null;
+  const lukeyMissing = round.lukeyFactId && !lukeyFact;
+  const guest0Missing = round.guestFactIds?.[0] && !guest0;
+  const guest1Missing = round.guestFactIds?.[1] && !guest1;
+
+  return (
+    <div className="rounded-2xl p-4" style={{background:'var(--ink-2)', border:'1px solid var(--hairline)'}}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="ff-display" style={{color:'var(--pink)',fontSize:18}}>Round {idx+1}</div>
+        <div className="flex gap-1.5">
+          <IconBtn onClick={()=>onMove(-1)} disabled={isFirst} label="↑"/>
+          <IconBtn onClick={()=>onMove(1)} disabled={isLast} label="↓"/>
+          <IconBtn onClick={onRemove} label="✕" danger/>
+        </div>
+      </div>
+
+      <FactSelect
+        label={`${HOST_NAME}'s truth`} accent="pink"
+        value={round.lukeyFactId} options={availableLukey}
+        currentFact={lukeyFact} missing={lukeyMissing}
+        onChange={onSetLukey}
+      />
+      <FactSelect
+        label="Guest fact #1 (lie)" accent="jade"
+        value={round.guestFactIds?.[0]} options={availableGuest0}
+        currentFact={guest0} missing={guest0Missing}
+        onChange={(id)=>onSetGuest(0, id)}
+      />
+      <FactSelect
+        label="Guest fact #2 (lie)" accent="jade"
+        value={round.guestFactIds?.[1]} options={availableGuest1}
+        currentFact={guest1} missing={guest1Missing}
+        onChange={(id)=>onSetGuest(1, id)}
+      />
+    </div>
+  );
+}
+
+function IconBtn({onClick, disabled, label, danger}) {
+  return (
+    <button
+      onClick={onClick} disabled={disabled}
+      className="rounded-lg flex items-center justify-center"
+      style={{
+        width:30, height:30,
+        border: '1px solid '+(danger?'rgba(251,113,133,0.3)':'var(--hairline)'),
+        color: disabled?'var(--cream-3)':(danger?'var(--coral)':'var(--cream)'),
+        opacity: disabled?0.3:1,
+        cursor: disabled?'not-allowed':'pointer',
+        fontSize: 14,
+      }}>
+      {label}
+    </button>
+  );
+}
+
+function FactSelect({label, accent, value, options, currentFact, missing, onChange}) {
+  const accentColor = accent === 'pink' ? 'var(--pink)' : 'var(--jade)';
+  // Include the current selection in the options list (so it doesn't disappear when "available" filtering removes itself)
+  const renderOptions = currentFact && !options.find(o => o.id === currentFact.id)
+    ? [currentFact, ...options]
+    : options;
+
+  return (
+    <div className="mb-2">
+      <div className="text-[10px] tracking-widest uppercase mb-1" style={{color: accentColor}}>{label}</div>
+      <select
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="gg-input"
+        style={{paddingTop:10, paddingBottom:10, fontSize:14, appearance:'auto'}}>
+        <option value="">{missing ? '⚠ (fact deleted — pick another)' : '— select a fact —'}</option>
+        {renderOptions.map(f => (
+          <option key={f.id} value={f.id}>
+            {truncate(f.text, 60)}{!f.isLucas && f.submittedBy ? ` — ${f.submittedBy}` : ''}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -871,7 +1144,7 @@ function PoolItemRow({item,onDelete}) {
 }
 
 // ============================================================
-// GAME 1 — Two Truths & a Lukey
+// GAME 1
 // ============================================================
 function Game1View({game,players,role,myName,onSubmit,onReveal,onNext}) {
   const round    = game.game1.rounds[game.game1.currentRound];
@@ -996,7 +1269,7 @@ function BetweenView({game,players,role,myName,storiesPool,onAddStory,onDeleteSt
 }
 
 // ============================================================
-// GAME 2 — Lucas is a Starfucker!
+// GAME 2
 // ============================================================
 function Game2View({game,players,role,myName,onSubmit,onReveal,onNext}) {
   const round    = game.game2.rounds[game.game2.currentRound];
@@ -1088,9 +1361,9 @@ function Game2View({game,players,role,myName,onSubmit,onReveal,onNext}) {
 }
 
 // ============================================================
-// FINAL VIEW
+// FINAL VIEW (now with Play Again button)
 // ============================================================
-function FinalView({players,myName}) {
+function FinalView({players,myName,role,onSoftReset,onReset}) {
   const sorted = Object.values(players).sort((a,b)=>(b.score||0)-(a.score||0));
   const winner = sorted[0];
   const me     = myName?players[myName]:null;
@@ -1122,6 +1395,19 @@ function FinalView({players,myName}) {
         <div className="text-xs tracking-widest uppercase mb-3" style={{color:'var(--cream-3)'}}>final standings</div>
         <Standings sorted={sorted} highlight={myName}/>
       </div>
+
+      {/* Host-only controls at the end */}
+      {role==='host' && (
+        <div className="space-y-3 mt-6">
+          <button className="gg-btn gg-btn-jade w-full" onClick={onSoftReset} style={{padding:'18px'}}>
+            🎲 Play again (keep facts & stories)
+          </button>
+          <button className="gg-btn gg-btn-danger w-full" onClick={onReset}>
+            ☢ Reset everything (wipe all content)
+          </button>
+        </div>
+      )}
+
       <TikiOrnament className="mt-8"/>
       <div className="text-center mt-3 text-xs tracking-widest uppercase" style={{color:'var(--cream-3)'}}>
         thanks for celebrating with {HOST_NAME} 🌴
