@@ -69,7 +69,6 @@ function countAnswers(players, key) {
 // ============================================================
 // Global CSS (identical to artifact version)
 // ============================================================
-function GlobalStyles() {
   return (
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Caprasimo&family=Outfit:wght@300..800&display=swap');
@@ -485,7 +484,6 @@ export default function App() {
   if (boot === 'loading') return (
     <div className="min-h-screen w-full flex items-center justify-center ff-body"
          style={{background:'var(--bg)',color:'var(--cream-2)'}}>
-      <GlobalStyles/>
       <div className="text-sm tracking-widest uppercase">setting the table…</div>
     </div>
   );
@@ -506,7 +504,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full ff-body relative" style={{background:'var(--bg)',color:'var(--cream)'}}>
-      <GlobalStyles/>
       <AmbientBg/>
       <Confetti show={confetti}/>
       <div className="relative z-10 max-w-2xl mx-auto px-5 py-8 sm:py-10">
@@ -540,7 +537,6 @@ export default function App() {
 function SplashHost({pinSetup,setPinSetup,onCreate,errMsg}) {
   return (
     <div className="min-h-screen w-full ff-body relative overflow-hidden" style={{background:'var(--bg)',color:'var(--cream)'}}>
-      <GlobalStyles/><AmbientBg/>
       <div className="relative z-10 max-w-xl mx-auto px-5 pt-16 sm:pt-24 pb-16 fade-up">
         <div className="text-center">
           <div className="flex justify-center mb-5">
@@ -586,7 +582,6 @@ function SplashHost({pinSetup,setPinSetup,onCreate,errMsg}) {
 function JoinScreen({nameInput,setNameInput,onJoin,showHostLogin,setShowHostLogin,hostPinInput,setHostPinInput,onHostLogin,errMsg,playerCount}) {
   return (
     <div className="min-h-screen w-full ff-body relative overflow-hidden" style={{background:'var(--bg)',color:'var(--cream)'}}>
-      <GlobalStyles/><AmbientBg/>
       <div className="relative z-10 max-w-md mx-auto px-5 pt-12 sm:pt-20 pb-16 fade-up">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4"><div className="wiggle" style={{color:'var(--sun)'}}><Palm size={48}/></div></div>
@@ -601,7 +596,6 @@ function JoinScreen({nameInput,setNameInput,onJoin,showHostLogin,setShowHostLogi
           </h1>
           <TikiOrnament className="my-5"/>
         </div>
-
         {!showHostLogin ? (
           <>
             <div className="gg-card scale-in">
