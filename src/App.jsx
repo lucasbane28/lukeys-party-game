@@ -305,17 +305,58 @@ export default function App() {
     await setDoc(PLAYER_DOC(myName), {...p, answers:{...(p.answers||{}), [key]:value}});
   }
 
-  async function reopenLobby() { await setPhase('lobby'); }
-
-  async function resetEverything() {
-    if (!confirm('Wipe everything — game, scores, facts, stories. Sure?')) return;
-    setRole(null); setMyName(null);
-    await deleteDoc(GAME_DOC());
-    for (const f of factsPool)   await deleteDoc(FACT_DOC(f.id));
-    for (const s of storiesPool) await deleteDoc(STORY_DOC(s.id));
-    const pSnap = await getDocs(playersCol());
-    for (const d of pSnap.docs) await deleteDoc(d.ref);
+  async function reopenLobby() { 
+  if (!game) return;
+  try {
+    // Reset the game to lobby phase but keep existing data
+    await setDoc(GAME_DOC(), {
+      ...game,
+      phase: 'lobby',
+      game1: { rounds: game.game1?.rounds || [], currentRound: 0, revealed: false },
+      game2: { rounds: game.game2?.rounds || [], currentRound: 0, revealed: false }
+    });
+  } catch (error) {
+    console.error("Error returning to lobby:", error);
+    alert("Something went wrong. Please try again.");
   }
+}
+  async function resetEverything() {
+  if (!confirm('Wipe everything — game, scores, facts, stories. Sure?')) return;
+  
+  try {
+    setRole(null); 
+    setMyName(null);
+    
+    // Delete the game document
+    await deleteDoc(GAME_DOC());
+    
+    // Get and delete ALL facts
+    const factsSnapshot = await getDocs(factsCol());
+    const deleteFactsPromises = factsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deleteFactsPromises);
+    
+    // Get and delete ALL stories
+    const storiesSnapshot = await getDocs(storiesCol());
+    const deleteStoriesPromises = storiesSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deleteStoriesPromises);
+    
+    // Get and delete ALL players
+    const playersSnapshot = await getDocs(playersCol());
+    const deletePlayersPromises = playersSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePlayersPromises);
+    
+    // Clear local state
+    setFactsPool([]);
+    setStoriesPool([]);
+    setPlayers({});
+    
+    // Force a page refresh to ensure clean state
+    window.location.reload();
+  } catch (error) {
+    console.error("Error resetting everything:", error);
+    alert("Something went wrong while resetting. Please try again.");
+  }
+}
 
   if (boot === 'loading') return (
     <div className="min-h-screen w-full flex items-center justify-center ff-body"
