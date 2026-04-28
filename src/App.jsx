@@ -540,26 +540,26 @@ function Header({role,myName,onLogout,onReset,onReopenLobby}) {
           </svg>
         </button>
         {menuOpen && (
-          <div className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden z-30 scale-in"
-               style={{background:'var(--ink-2)',border:'1px solid var(--hairline)'}}>
-            <button onClick={()=>{setMenuOpen(false);onLogout();}}
-              className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--cream)'}}>
-              Switch identity
-            </button>
-            {role==='host' && <>
-              <div className="hairline"/>
-              <button onClick={()=>{setMenuOpen(false);onReopenLobby();}}
-                className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--cream)'}}>
-                Return to lobby
-              </button>
-              <div className="hairline"/>
-              <button onClick={()=>{setMenuOpen(false);onReset();}}
-                className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--coral)'}}>
-                Reset everything
-              </button>
-            </>}
-          </div>
-        )}
+  <div className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden z-30 scale-in"
+       style={{background:'var(--ink-2)',border:'1px solid var(--hairline)'}}>
+    <button onClick={()=>{setMenuOpen(false);onReopenLobby();}}
+      className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--cream)'}}>
+      Switch identity
+    </button>
+    {role==='host' && <>
+      <div className="hairline"/>
+      <button onClick={()=>{setMenuOpen(false);onReopenLobby();}}
+        className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--cream)'}}>
+        Return to lobby
+      </button>
+      <div className="hairline"/>
+      <button onClick={()=>{setMenuOpen(false);onReset();}}
+        className="w-full text-left px-4 py-3 text-sm hover:bg-black/30" style={{color:'var(--coral)'}}>
+        Reset everything
+      </button>
+    </>}
+  </div>
+)}
       </div>
     </div>
   );
