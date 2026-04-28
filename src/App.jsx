@@ -67,162 +67,7 @@ function countAnswers(players, key) {
 }
 
 // ============================================================
-// Global CSS (identical to artifact version)
-// ============================================================
-  return (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Caprasimo&family=Outfit:wght@300..800&display=swap');
 
-      :root {
-        --bg: #1a0d22; --bg-2: #221030;
-        --ink: #2c1438; --ink-2: #3a1c47; --ink-3: #4a2657;
-        --cream: #fff5e6; --cream-2: #d4b8d0; --cream-3: #8e6a8a;
-        --pink: #ff5e9e; --pink-bright: #ff85b3; --pink-deep: #d63d7e;
-        --jade: #5eead4; --jade-deep: #2dd4bf;
-        --sun: #fbbf24; --sun-bright: #fcd34d;
-        --coral: #fb7185; --lime: #a3e635;
-        --hairline: rgba(255,94,158,0.18);
-        --hairline-strong: rgba(255,94,158,0.45);
-        --jade-line: rgba(94,234,212,0.25);
-      }
-
-      .ff-display { font-family: 'Caprasimo', serif; letter-spacing: -0.01em; }
-      .ff-body    { font-family: 'Outfit', sans-serif; }
-      .ff-num     { font-family: 'Caprasimo', serif; font-variant-numeric: tabular-nums; }
-
-      body, html, #root { background: var(--bg); }
-
-      @keyframes float-a {
-        0%,100%{transform:translate(0,0) scale(1);}
-        50%{transform:translate(30px,-40px) scale(1.1);}
-      }
-      @keyframes float-b {
-        0%,100%{transform:translate(0,0) scale(1);}
-        50%{transform:translate(-40px,30px) scale(0.95);}
-      }
-      .blob-a{animation:float-a 22s ease-in-out infinite;}
-      .blob-b{animation:float-b 28s ease-in-out infinite;}
-
-      @keyframes fade-up{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
-      .fade-up{animation:fade-up 0.55s cubic-bezier(0.2,0.9,0.3,1) both;}
-
-      @keyframes scale-in{from{opacity:0;transform:scale(0.94);}to{opacity:1;transform:scale(1);}}
-      .scale-in{animation:scale-in 0.4s cubic-bezier(0.34,1.56,0.64,1) both;}
-
-      @keyframes wiggle{0%,100%{transform:rotate(-2deg);}50%{transform:rotate(2deg);}}
-      .wiggle{animation:wiggle 4s ease-in-out infinite;transform-origin:bottom center;}
-
-      @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.4;transform:scale(0.8);}}
-      .pulse-dot{animation:pulse-dot 1.6s ease-in-out infinite;}
-
-      @keyframes confetti-fall{
-        0%{transform:translateY(-20vh) rotate(0deg);opacity:1;}
-        100%{transform:translateY(110vh) rotate(720deg);opacity:0;}
-      }
-      @keyframes pop-up{
-        0%{transform:scale(0.5);opacity:0;}
-        50%{transform:scale(1.2);opacity:1;}
-        100%{transform:scale(1);opacity:1;}
-      }
-      .pop-up{animation:pop-up 0.55s cubic-bezier(0.34,1.56,0.64,1) both;}
-
-      @keyframes shimmer-pink{
-        0%{background-position:-200% center;}
-        100%{background-position:200% center;}
-      }
-      .pink-shimmer{
-        background:linear-gradient(110deg,var(--pink-deep) 20%,var(--sun-bright) 50%,var(--pink-deep) 80%);
-        background-size:200% auto;
-        -webkit-background-clip:text;background-clip:text;
-        -webkit-text-fill-color:transparent;color:transparent;
-        animation:shimmer-pink 4s linear infinite;
-      }
-
-      .gg-input {
-        width:100%;background:var(--ink);color:var(--cream);
-        border:1px solid var(--hairline);border-radius:14px;
-        padding:14px 16px;font-family:'Outfit',sans-serif;
-        font-size:16px;outline:none;
-        transition:border-color .2s,background .2s;
-        box-sizing:border-box;
-      }
-      .gg-input::placeholder{color:var(--cream-3);}
-      .gg-input:focus{border-color:var(--pink);background:var(--ink-2);}
-      textarea.gg-input{resize:vertical;min-height:80px;line-height:1.45;}
-
-      .gg-btn{
-        display:inline-flex;align-items:center;justify-content:center;gap:8px;
-        padding:14px 22px;border-radius:999px;font-family:'Outfit',sans-serif;
-        font-weight:600;font-size:15px;letter-spacing:0.01em;
-        cursor:pointer;transition:all .2s;border:2px solid transparent;
-        white-space:nowrap;
-      }
-      .gg-btn-primary{background:var(--pink);color:white;box-shadow:0 6px 24px -8px var(--pink-deep);}
-      .gg-btn-primary:hover{background:var(--pink-bright);transform:translateY(-1px);}
-      .gg-btn-primary:disabled{background:var(--ink-2);color:var(--cream-3);cursor:not-allowed;transform:none;box-shadow:none;}
-      .gg-btn-jade{background:var(--jade);color:var(--bg);box-shadow:0 6px 24px -8px var(--jade-deep);}
-      .gg-btn-jade:hover{background:var(--jade-deep);transform:translateY(-1px);}
-      .gg-btn-jade:disabled{background:var(--ink-2);color:var(--cream-3);cursor:not-allowed;transform:none;box-shadow:none;}
-      .gg-btn-ghost{background:transparent;color:var(--cream);border-color:var(--hairline);}
-      .gg-btn-ghost:hover{border-color:var(--pink);color:var(--pink-bright);}
-      .gg-btn-danger{background:transparent;color:var(--coral);border-color:rgba(251,113,133,0.3);}
-      .gg-btn-danger:hover{background:rgba(251,113,133,0.08);}
-
-      .gg-card{background:var(--ink);border:1px solid var(--hairline);border-radius:22px;padding:24px;}
-
-      .gg-choice{
-        width:100%;text-align:left;background:var(--ink);
-        border:2px solid var(--hairline);border-radius:18px;
-        padding:18px 20px;color:var(--cream);
-        font-family:'Outfit',sans-serif;font-size:16px;line-height:1.5;
-        cursor:pointer;transition:all .2s;
-        display:flex;align-items:flex-start;gap:14px;
-      }
-      .gg-choice:hover:not(:disabled){border-color:var(--pink);background:var(--ink-2);transform:translateY(-1px);}
-      .gg-choice:disabled{cursor:not-allowed;opacity:0.7;}
-      .gg-choice.selected{border-color:var(--pink);background:linear-gradient(135deg,rgba(255,94,158,0.15),rgba(94,234,212,0.06));}
-      .gg-choice.correct{border-color:var(--lime);background:rgba(163,230,53,0.08);color:var(--cream);}
-      .gg-choice.wrong{border-color:var(--coral);background:rgba(251,113,133,0.08);}
-
-      .gg-letter{
-        flex:0 0 auto;width:32px;height:32px;border-radius:10px;
-        border:2px solid var(--hairline-strong);
-        display:flex;align-items:center;justify-content:center;
-        font-family:'Caprasimo',serif;font-size:16px;color:var(--pink);margin-top:-2px;
-      }
-      .gg-choice.selected .gg-letter,.gg-choice.correct .gg-letter{background:var(--pink);color:white;border-color:var(--pink);}
-      .gg-choice.correct .gg-letter{background:var(--lime);color:var(--bg);border-color:var(--lime);}
-      .gg-choice.wrong .gg-letter{background:var(--coral);color:white;border-color:var(--coral);}
-
-      .hairline{height:1px;background:var(--hairline);width:100%;}
-      .jade-line{height:1px;background:var(--jade-line);width:100%;}
-
-      .tag{
-        display:inline-flex;align-items:center;gap:6px;
-        padding:5px 12px;border-radius:999px;
-        background:rgba(255,94,158,0.15);color:var(--pink-bright);
-        font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;
-        letter-spacing:0.1em;text-transform:uppercase;
-      }
-      .tag-jade{background:rgba(94,234,212,0.12);color:var(--jade);}
-      .tag-sun{background:rgba(251,191,36,0.12);color:var(--sun);}
-      .tag-lime{background:rgba(163,230,53,0.12);color:var(--lime);}
-      .tag-coral{background:rgba(251,113,133,0.12);color:var(--coral);}
-
-      .pool-item{background:var(--ink-2);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.4;}
-      .pool-item-lucas{border-color:var(--hairline-strong);background:linear-gradient(135deg,rgba(255,94,158,0.08),rgba(251,191,36,0.04));}
-      .pool-item-jade{border-color:var(--jade-line);background:linear-gradient(135deg,rgba(94,234,212,0.06),rgba(94,234,212,0.02));}
-
-      .grain{position:fixed;inset:0;pointer-events:none;opacity:0.05;z-index:1;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
-      .tropic-pattern{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.04;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='%23ff5e9e'%3E%3Cpath d='M80 20 Q90 40 80 60 Q70 40 80 20 Z'/%3E%3Cpath d='M120 80 Q100 90 80 80 Q100 70 120 80 Z'/%3E%3Cpath d='M80 100 Q90 120 80 140 Q70 120 80 100 Z'/%3E%3Cpath d='M40 80 Q60 90 80 80 Q60 70 40 80 Z'/%3E%3Ccircle cx='80' cy='80' r='4'/%3E%3C/g%3E%3C/svg%3E");background-repeat:repeat;background-size:220px 220px;}
-
-      ::-webkit-scrollbar{width:8px;height:8px;}
-      ::-webkit-scrollbar-track{background:transparent;}
-      ::-webkit-scrollbar-thumb{background:var(--ink-3);border-radius:4px;}
-      ::-webkit-scrollbar-thumb:hover{background:var(--pink-deep);}
-    `}</style>
-  );
-}
 
 // ============================================================
 // Decorative components
@@ -506,7 +351,7 @@ export default function App() {
     <div className="min-h-screen w-full ff-body relative" style={{background:'var(--bg)',color:'var(--cream)'}}>
       <AmbientBg/>
       <Confetti show={confetti}/>
-      <div className="relative z-10 max-w-2xl mx-auto px-5 py-8 sm:py-10">
+      <div className="relative z-10 max-w-2xl mx-auto px-5 py-12 sm:py-16">
         <Header role={role} myName={myName}
           onLogout={()=>{setRole(null);setMyName(null);}}
           onReset={resetEverything} onReopenLobby={reopenLobby}/>
@@ -537,7 +382,7 @@ export default function App() {
 function SplashHost({pinSetup,setPinSetup,onCreate,errMsg}) {
   return (
     <div className="min-h-screen w-full ff-body relative overflow-hidden" style={{background:'var(--bg)',color:'var(--cream)'}}>
-      <div className="relative z-10 max-w-xl mx-auto px-5 pt-16 sm:pt-24 pb-16 fade-up">
+      <div className="relative z-10 max-w-md mx-auto px-5 pt-16 sm:pt-24 pb-20 fade-up">
         <div className="text-center">
           <div className="flex justify-center mb-5">
             <div className="wiggle" style={{color:'var(--sun)'}}><Palm size={56}/></div>
