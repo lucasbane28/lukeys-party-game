@@ -67,9 +67,6 @@ function countAnswers(players, key) {
 }
 
 // ============================================================
-
-
-// ============================================================
 // Decorative components
 // ============================================================
 function AmbientBg() {
@@ -96,6 +93,7 @@ function Sparkle({size=16,className='',style={}}) {
     </svg>
   );
 }
+
 function Palm({size=22,className=''}) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
@@ -103,6 +101,7 @@ function Palm({size=22,className=''}) {
     </svg>
   );
 }
+
 function TikiOrnament({className=''}) {
   return (
     <div className={`flex items-center justify-center gap-3 ${className}`} style={{color:'var(--pink)'}}>
@@ -114,6 +113,7 @@ function TikiOrnament({className=''}) {
     </div>
   );
 }
+
 function Confetti({show}) {
   if (!show) return null;
   const colors=['#ff5e9e','#5eead4','#fbbf24','#a3e635','#fb7185','#fff5e6'];
@@ -146,7 +146,6 @@ export default function App() {
   const [errMsg,     setErrMsg]     = useState('');
   const [confetti,   setConfetti]   = useState(false);
 
-  // ── Real-time Firestore listeners (replaces polling)
   useEffect(() => {
     const unsubs = [];
 
@@ -172,7 +171,6 @@ export default function App() {
     return () => unsubs.forEach(u => u());
   }, []);
 
-  // ── Host: create game
   async function createGame() {
     if (!/^\d{4}$/.test(pinSetup)) { setErrMsg('PIN must be 4 digits'); return; }
     const newGame = {
@@ -185,7 +183,6 @@ export default function App() {
     setRole('host'); setErrMsg('');
   }
 
-  // ── Host: return login
   function tryHostLogin() {
     if (!game) return;
     if (hostPinInput.trim() === (game.hostPin||'').trim()) {
@@ -193,7 +190,6 @@ export default function App() {
     } else { setErrMsg('Wrong PIN, babe.'); }
   }
 
-  // ── Player: join
   async function joinAsPlayer() {
     const name = nameInput.trim();
     if (!name)              { setErrMsg('Need a name to join'); return; }
@@ -206,7 +202,6 @@ export default function App() {
     setMyName(name); setRole('player'); setErrMsg('');
   }
 
-  // ── Pool: facts
   async function addFact({text,isLucas,attribution}) {
     if (!text.trim()) return;
     const id = uid();
@@ -218,7 +213,6 @@ export default function App() {
   }
   async function deleteFact(id) { await deleteDoc(FACT_DOC(id)); }
 
-  // ── Pool: stories
   async function addStory({text,isLucas,attribution}) {
     if (!text.trim()) return;
     const id = uid();
@@ -230,7 +224,6 @@ export default function App() {
   }
   async function deleteStory(id) { await deleteDoc(STORY_DOC(id)); }
 
-  // ── Phase control
   async function setPhase(newPhase, extra={}) {
     if (!game) return;
     await setDoc(GAME_DOC(), {...game, phase:newPhase, ...extra});
@@ -247,7 +240,6 @@ export default function App() {
     const r   = game.game1.rounds[game.game1.currentRound];
     const key = `g1-${game.game1.currentRound}`;
     const correct = r.lukeyIndex;
-    // Fresh read to avoid stale state
     const pSnap = await getDocs(playersCol());
     for (const d of pSnap.docs) {
       const p   = d.data();
@@ -325,7 +317,6 @@ export default function App() {
     for (const d of pSnap.docs) await deleteDoc(d.ref);
   }
 
-  // ── Render routing
   if (boot === 'loading') return (
     <div className="min-h-screen w-full flex items-center justify-center ff-body"
          style={{background:'var(--bg)',color:'var(--cream-2)'}}>
@@ -351,7 +342,7 @@ export default function App() {
     <div className="min-h-screen w-full ff-body relative" style={{background:'var(--bg)',color:'var(--cream)'}}>
       <AmbientBg/>
       <Confetti show={confetti}/>
-      <div className="relative z-10 max-w-2xl mx-auto px-5 py-12 sm:py-16">
+      <div className="relative z-10 max-w-2xl mx-auto px-5 py-8 sm:py-10">
         <Header role={role} myName={myName}
           onLogout={()=>{setRole(null);setMyName(null);}}
           onReset={resetEverything} onReopenLobby={reopenLobby}/>
@@ -382,7 +373,8 @@ export default function App() {
 function SplashHost({pinSetup,setPinSetup,onCreate,errMsg}) {
   return (
     <div className="min-h-screen w-full ff-body relative overflow-hidden" style={{background:'var(--bg)',color:'var(--cream)'}}>
-      <div className="relative z-10 max-w-md mx-auto px-5 pt-16 sm:pt-24 pb-20 fade-up">
+      <AmbientBg/>
+      <div className="relative z-10 max-w-xl mx-auto px-5 pt-16 sm:pt-24 pb-16 fade-up">
         <div className="text-center">
           <div className="flex justify-center mb-5">
             <div className="wiggle" style={{color:'var(--sun)'}}><Palm size={56}/></div>
@@ -427,6 +419,7 @@ function SplashHost({pinSetup,setPinSetup,onCreate,errMsg}) {
 function JoinScreen({nameInput,setNameInput,onJoin,showHostLogin,setShowHostLogin,hostPinInput,setHostPinInput,onHostLogin,errMsg,playerCount}) {
   return (
     <div className="min-h-screen w-full ff-body relative overflow-hidden" style={{background:'var(--bg)',color:'var(--cream)'}}>
+      <AmbientBg/>
       <div className="relative z-10 max-w-md mx-auto px-5 pt-12 sm:pt-20 pb-16 fade-up">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4"><div className="wiggle" style={{color:'var(--sun)'}}><Palm size={48}/></div></div>
@@ -633,7 +626,6 @@ function TabBtn({active,onClick,children}) {
   );
 }
 
-// ── Host submission panel
 function HostSubmissionPanel({factsPool,storiesPool,onAddFact,onDeleteFact,onAddStory,onDeleteStory}) {
   const [openTab,setOpenTab]=useState('facts');
   return (
@@ -652,7 +644,6 @@ function HostSubmissionPanel({factsPool,storiesPool,onAddFact,onDeleteFact,onAdd
   );
 }
 
-// ── Guest submission panel
 function GuestSubmissionPanel({myName,factsPool,storiesPool,onAddFact,onDeleteFact,onAddStory,onDeleteStory}) {
   const [openTab,setOpenTab]=useState('fact');
   const myFacts   = factsPool.filter(f=>!f.isLucas&&f.submittedBy===myName);
